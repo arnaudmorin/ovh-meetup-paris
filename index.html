@@ -1,0 +1,513 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+        <title>OpenStack, du sur mesure pour le Cloud Public</title>
+
+        <link rel="stylesheet" href="css/reveal.css">
+        <link rel="stylesheet" href="css/theme/ovh.css">
+
+        <!-- Theme used for syntax highlighting of code -->
+        <link rel="stylesheet" href="lib/css/zenburn.css">
+
+        <!-- Printing and PDF exports -->
+        <script>
+            var link = document.createElement( 'link' );
+            link.rel = 'stylesheet';
+            link.type = 'text/css';
+            link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+            document.getElementsByTagName( 'head' )[0].appendChild( link );
+        </script>
+    </head>
+    <body>
+        <div class="reveal">
+            <div class="slides">
+                <section data-markdown data-background="data/ovh-meet-up-brest-digit-event.jpg">
+                    # OpenStack
+                    ### du sur mesure pour le Cloud Public
+                    ![OVH](data/logo-ovh-meet-up-small.png)
+                </section>
+
+                <section data-markdown data-background="data/slide.png">
+                    ## Qui sommes nous ?
+                </section>
+
+                <section data-background="data/slide.png">
+                    <section data-markdown>
+                        ## Que fait-on ?
+                    </section>
+                    <section data-markdown data-separator-notes="^Note:">
+                        ### Public Cloud
+                    </section>
+                    <section data-markdown data-separator-notes="^Note:">
+                        ### Ceph
+                    </section>
+                    <section data-markdown data-background="data/it_crowd_1.gif">
+                        # OpenStack
+                        ![OpenStack](data/openstack_logo.png)
+                    </section>
+                </section>
+
+                # Qui est client OVH?
+                # Qui utilise deja le cloud public?
+                # Qui voudrait?
+                # Le cloud public chez ovh c'est quoi ?
+                  - Le cloud c'est quoi ?
+                  - compute
+                   - network
+                   - image
+                  - stockage
+                   - objet
+                   - block --> volume ou disk pour les instances
+                  - base sur openstack
+                # openstack
+                  - python blabla
+                  - les briques
+                  - Archi type d'un deploiement ovh
+                  - vrack
+                  - 12 000 computes en tout, 500 par region en gros
+                  - scaling issues
+                # Tooling
+                    # Deploiement
+                        - API OVH
+                        - postinstall
+                        - Puppet, config unitaire
+                        - Ansible, orchestration
+                    # Gestion / administration, devops style
+                        - puppet
+                        - ansible
+                        - clustershell
+                        - demo
+                        - tmux
+                # Demo, les differentes facons de manipuler / gerer les objects du cloud
+                  - manager
+                  - horizon
+                  - clicli
+                  - curl / API
+                # Questions
+
+                <section data-background="data/slide.png">
+                    <section data-markdown data-background="data/ovh_datacenter.jpg">
+                        ### dedicated servers
+                    </section>
+                    <section data-markdown>
+                        ### web hosting
+                    </section>
+                    <section data-markdown>
+                        ### dedicated cloud
+                    </section>
+                    <section data-markdown>
+                        ### public cloud
+                    </section>
+                    <section data-markdown data-background="data/nerds2.gif">
+                        # OpenStack
+                        ![openstack](data/openstack_logo.png)
+                    </section>
+                </section>
+
+                <section data-background="data/slide.png">
+                     <section data-markdown>
+                         ## Context
+                         * 25 OpenStack regions worldwide
+                         * \>250k instances
+                         * oldest regions are using OpenStack Juno
+                         * newest regions are using OpenStack Newton
+                     </section>
+                     <section data-markdown>
+                        ### When do we need live migration?
+                        * Need to empty a compute node
+                            * Hardware maintenance
+                            * Software issue
+                            * Kernel upgrade
+                            * microcode update
+                            * Spectre / meltdown / foreshadow
+                        * Upgrade from Juno to Newton
+                            * keep consistency between infra
+                            * drop old releases
+                            * bring new services
+                            * Newton => easier to upgrade to newer releases
+                     </section>
+                     <section data-markdown>
+                        #### More live-migration => more bugs
+                     </section>
+                 </section>
+
+                <section data-background="data/slide.png">
+                    <section data-markdown>
+                        ## Nova live migration
+                    </section>
+                    <section data-markdown>
+                        ## Context
+
+                        * Environment
+                            - Juno on Ubuntu Trusty
+                            - Qemu 2.3 / libvirt 1.3.1
+
+                        **We need an outstanding live-migration workflow!**
+
+                        but that's not the case on vanilla OpenStack Juno...
+                    </section>
+                    <section data-markdown>
+                        ## Multiple instance profiles
+                        * Why our live-migration is painful
+                          * local disk
+                          * ceph disk
+                        * Extra
+                          * cinder volume
+                          * config drive
+                          * GPU
+                          * FPGA
+                          * different CPU generations
+                    </section>
+                    <section data-markdown data-background="data/headache.gif">
+                    </section>
+                    <section data-markdown>
+                        ## Workflow
+
+                        * A bug is triggered by live migration
+                            - Try to reproduce it in an OpenStack dev environment
+                            - Find root cause
+                            - Check if an upstream fix already exists
+                                - Cherry pick on our OpenStack env
+                            - If not fixed upstream
+                                - Need to be fixed quickly
+                                    - local workaround
+                                    - OpenStack upstream patch
+                    </section>
+                    <section data-markdown>
+                        ### Live migration issues
+
+                        * Fail to live migrate on loaded instances
+                            - migration takes ages or never finishes
+                            - instance needs to be paused (virsh suspend)
+                            - reproduce case with stress-ng running on vm
+
+                        ```bash
+                        # source host
+                        $ virsh domjobinfo 9c2d1068-fe0b-4ee3-b860-c00c9688cf49
+                        Job type:         Unbounded
+                        Time elapsed:     172795       ms
+
+                        # Destination host, after instance suspend
+                        $ virsh domjobinfo 9c2d1068-fe0b-4ee3-b860-c00c9688cf49 --completed
+                        Job type:         Completed
+                        Time elapsed:     942 798   ms
+                        Data processed:   572.901 GiB
+                        Iteration:        224
+                        ...
+
+                        ```
+                    </section>
+                    <section data-markdown>
+                        ### Live migration issues
+
+                        * Enable auto convergence
+                            - cpu throttling
+
+                        => **Need qemu 2.5 / libvirt 1.3.3**
+
+                        ```bash
+                        /etc/nova/nova.conf
+
+                        # Juno
+                        block_migration_flag= ... , VIR_MIGRATE_AUTO_CONVERGE
+                        live_migration_flag= ..., VIR_MIGRATE_AUTO_CONVERGE
+
+                        # Newton
+                        live_migration_permit_auto_converge=True
+                        ```
+                    </section>
+                    <section data-markdown>
+                        ### Live migration issues
+
+                        Juno uses libvirt method migrateToURI2
+                        - We were unable to live migrate instances with both:
+                            - local disk
+                            - attached ceph volume
+
+                        * Use migrateToURI3
+
+                        => **Need qemu 2.5 / libvirt 1.3.3**
+                    </section>
+                    <section data-markdown>
+                        ### Live migration issues
+                        config drive
+                        ```bash
+                        $ nova boot --config-drive True ...
+                        ```
+
+                        on compute host
+                        ```bash
+                        $ ls
+                        console.log  disk  disk.config  disk.info  libvirt.xml
+                        ```
+                        bug in libvirt, if config_drive_format=iso9660, read-only file
+
+
+                        Solution
+                        ```bash
+                        src = "%s:%s/disk.config" % (instance['host'], instance_dir)
+                        utils.execute('scp', src, instance_dir)
+                        ```
+                    </section>
+
+                    <section data-markdown>
+                        ### Live migration issues
+
+                        - Future improvements:
+                            - OpenStack
+                                - live migration with CPU Pinning
+                                - migrate from node with qemu qcow2 disk => raw disk
+                            - libvirt migration features:
+                                - post copy (>= qemu 2.6)
+                                - compression
+                    </section>
+                </section>
+
+                <section data-background="data/slide.png">
+                    <section data-markdown>
+                        ## Tools
+                    </section>
+                    <section data-markdown data-separator-notes="^Note:">
+                        ## Automation - run-cli
+                        ![ovh](data/ovh-run-cli-host-drain.gif)
+
+                        Note: is-trusty kernel-version
+                    </section>
+                    <section data-markdown>
+                        ## Automation - mistral
+                        ![ovh](data/ovh-cloudflow.gif)
+                    </section>
+                    <section data-markdown>
+                        ## Automation - mistral
+                        * Workflows
+                          * inputs
+                          * tasks
+                            * actions
+                            * workflows
+                          * outputs
+                    </section>
+                    <section data-markdown>
+                        ## Automation - example workflow
+                        ```yaml
+  live-migrate:
+    description: A workflow that live migrates an instance
+    input:
+      - region
+      - vm
+                        ```
+                    </section>
+                    <section data-markdown>
+                        ## Automation - example workflow
+                        ```yaml
+...
+      ping_before:
+        action: ovh.shell
+        input:
+          cmd: "ping -c10 <% $.ip_to_ping %>"
+        # we will go to the next action depending on
+        # wheter or not the instance pings
+        publish:
+          pingable: true
+        publish-on-error:
+          pingable: false
+        on-complete:
+          - live_migrate
+...
+                        ```
+                    </section>
+                    <section data-markdown>
+                        ## Automation - example workflow
+                        ```yaml
+      live_migrate:
+        action: nova.servers_live_migrate
+        input:
+          action_region: <% $.region %>
+          server: <% $.vm.id %>
+          host: Null
+          block_migration: false    # We first try without block_migration
+          disk_over_commit: true
+        retry:
+          delay: 5
+          count: 1
+        wait-after: 10
+        on-success:
+          - wait_vm_active
+        on-error:
+          - live_block_migrate  # On error, we will try with block_migration
+                        ```
+                    </section>
+
+                    <section data-markdown>
+                        ## Automation - example workflow
+                        ```yaml
+      live_block_migrate:
+        action: nova.servers_live_migrate
+        input:
+          action_region: <% $.region %>
+          server: <% $.vm.id %>
+          host: Null
+          block_migration: true     # This is block_migration
+          disk_over_commit: true
+        retry:
+          delay: 5
+          count: 1
+        on-success:
+          - wait_vm_active
+        on-error:
+          - fail        # It also failed with block_migration, so fail
+                        ```
+                    </section>
+
+                    <section data-markdown>
+                        ## Monitoring / Stats - Alerting
+                        Alerting probes deployed on compute nodes
+                        ```bash
+                        [root@host772847.preprod.gra1.cloud.ovh.net ~] instance-routed --debug
+                        [ DEBUG   ]  Scanning (icmp) following 4 ips:
+                        [ DEBUG   ]  10.92.135.33 10.92.135.77 10.92.135.78 10.92.135.147
+                        [ DEBUG   ]  1 ips did not reply:
+                        [ DEBUG   ]  10.92.135.78
+                        [ DEBUG   ]  10.92.135.78 does not have static route in ns-link!!
+                        [ DEBUG   ]  Trying again MTR check:
+                        [ DEBUG   ]  10.92.135.78 does not have static route in ns-link!!
+                        [ INFO    ]  1 ips are not correcly routed:
+                        [ DEBUG   ]  10.92.135.78
+                        [ INFO    ]  Set oco status: 210
+                        [ DEBUG   ]  Write oco status: 210
+                        ```
+                        - detect a possible post live migration issue
+                            - cleanup on source node
+                            - is everything well on destination ?
+                        - Alerting handled by shinken
+                    </section>
+                    <section data-markdown>
+                        ## Monitoring / Stats - Alerting
+                        - Neutron
+                            - missing / orphaned BGP announcement
+                            - missing / orphaned openflow rules (private network)
+                            - Port / OVS bridge / namespace created
+                            - arping ok (instance has security rules)
+                    </section>
+                    <section data-markdown>
+                        ## Monitoring / Stats - Alerting
+                        - Nova
+                            - disk not cleaned up on source
+
+                        - Mechanism to autoclean orphaned disk
+                            - at first, disabled on our production
+                            - we enabled it, because it just works !
+
+                            ```
+                            # nova.conf
+                            running_deleted_instance_action=reap
+                            running_deleted_instance_poll_interval=7200
+                            running_deleted_instance_timeout=3600
+
+                            ```
+                    </section>
+                    <section data-markdown>
+                        ## Monitoring / Stats
+                        - collect data and push to timeseries backend
+                            - Python script using libvirt api on compute nodes
+                                - virsh domjobinfo after a succcessful migration
+                            - Noderig (https://github.com/ovh/noderig)
+                            - Beamium (https://github.com/ovh/beamium)
+                            - Warp10 timeseries backend
+                    </section>
+                    <section data-markdown>
+                        ## Monitoring / Stats - Grafana example
+                        ![ovh](data/ovh_nb_live_migration_total.png)
+                        ![ovh](data/nb_migration_per_day_february.png)
+                    </section>
+                    <section data-markdown>
+                        ## Monitoring / Stats - Grafana example
+                        ![ovh](data/migration_mean_elapsed_time_per_hour_per_region.png)
+                    </section>
+                </section>
+
+                <section data-background="data/slide.png">
+                    <section data-markdown>
+                        ## Juno to newton
+                        #### a journey with OpenStack Upgrades
+                    </section>
+                    <section data-markdown>
+                        ## The easy part - computes
+                        Same libvirt / qemu version on Trusty and Xenial allowed for smooth upgrade on compute nodes
+
+                        ```bash
+                        # OpenStack Juno on Trusty
+                        $ apt-cache policy libvirt-bin
+                        libvirt-bin:
+                          Installed: 1.3.3-2ubuntu2+ovh1~trusty
+
+                        # OpenStack Newton on Trusty
+                        $ apt-cache policy libvirt-bin
+                        libvirt-bin:
+                          Installed: 1.3.3-2ubuntu2+ovh1~trusty
+                        ```
+
+                        So, OpenStack upgrade is as easy as
+                        ```bash
+                        apt-get upgrade     # even easier when it's done by puppet
+                        ```
+                    </section>
+                    <section data-markdown>
+                        ## The easy part - controllers
+                        Almost all control plane upgrade is easy, just need to reinstall those servers to move to Xenial with OpenStack Newton
+
+
+
+
+                        ## except ...
+                    </section>
+                    <section data-markdown>
+                        ## The hard part - databases
+                        As expected by anybody who already upgraded OpenStack once...
+
+                        Our solution
+                        * Fast Forward Upgrade
+                        * Docker containers to perform alembic migrations
+                        * A good documentation
+                        * A working backup
+                        * A way to rollback
+                    </section>
+                </section>
+
+                <section data-markdown data-background="data/slide.png">
+                    ## Conclusion
+                    * Backporting code to EOL OpenStack releases
+                    * Automation is what you need
+                    * Juno to Newton easier when core packages are shared
+                </section>
+
+                <section data-markdown data-background="data/camion_plot.gif">
+                    ## Questions?
+                </section>
+
+                <section data-markdown data-separator-notes="^Note:" data-background="data/ninja_vrack.gif" data-background-size="contain" data-background-color="black"></section>
+            </div>
+        </div>
+
+        <script src="lib/js/head.min.js"></script>
+        <script src="js/reveal.js"></script>
+
+        <script>
+            // More info https://github.com/hakimel/reveal.js#configuration
+            Reveal.initialize({
+                history: true,
+                slideNumber: true,
+
+                // More info https://github.com/hakimel/reveal.js#dependencies
+                dependencies: [
+                    { src: 'plugin/markdown/marked.js' },
+                    { src: 'plugin/markdown/markdown.js' },
+                    { src: 'plugin/notes/notes.js', async: true },
+                    { src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } }
+                ]
+            });
+        </script>
+    </body>
+</html>
